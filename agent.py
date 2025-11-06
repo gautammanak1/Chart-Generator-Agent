@@ -1,15 +1,12 @@
-import base64
 import os
 import re
 import time
 import requests
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Tuple
 from uuid import uuid4
 import io
-
-import cloudinary
-import cloudinary.uploader
+import base64
 
 from uagents import Agent, Context, Protocol
 from uagents.setup import fund_agent_if_low
@@ -24,13 +21,6 @@ from uagents_core.contrib.protocols.chat import (
 from dotenv import load_dotenv
 
 load_dotenv()
-
-# Configure Cloudinary
-cloudinary.config(
-    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
-    api_key=os.getenv("CLOUDINARY_API_KEY"),
-    api_secret=os.getenv("CLOUDINARY_API_SECRET")
-)
 
 # Initialize the agent
 agent = Agent(
@@ -157,8 +147,60 @@ def extract_code(response_text: str) -> str:
     return code.strip()
 
 
+def upload_to_imgbb(image_data: bytes) -> str:
+    """Upload image to imgbb (free image hosting) and return URL."""
+    try:
+        # Convert image to base64
+        image_b64 = base64.b64encode(image_data).decode('utf-8')
+        
+        # imgbb API endpoint
+        url = "https://api.imgbb.com/1/upload"
+        
+        api_key = os.getenv("IMGBB_API_KEY", "5fc10a16325262d93d1e884c7c0e6eae")
+        
+        if api_key:
+            data = {
+                "key": api_key,
+                "image": image_b64
+            }
+            response = requests.post(url, data=data, timeout=30)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if result.get("success"):
+                    return result.get("data", {}).get("url", "")
+        
+        # Fallback: Try imgur (anonymous upload)
+        return upload_to_imgur(image_data)
+    except Exception as e:
+        # Fallback to imgur
+        return upload_to_imgur(image_data)
+
+
+def upload_to_imgur(image_data: bytes) -> str:
+    """Upload to imgur (anonymous, free image hosting)."""
+    try:
+        url = "https://api.imgur.com/3/image"
+        headers = {
+            "Authorization": "Client-ID 546c25a59c58ad7"  
+        }
+        data = {
+            "image": base64.b64encode(image_data).decode('utf-8')
+        }
+        response = requests.post(url, headers=headers, data=data, timeout=30)
+        if response.status_code == 200:
+            result = response.json()
+            if result.get("success"):
+                return result.get("data", {}).get("link", "")
+    except Exception as e:
+        pass
+    
+    # If all fails, return empty (will show error message)
+    return ""
+
+
 def execute_and_upload_chart(code: str, ctx: Context = None) -> Tuple[bool, str, list[str]]:
-    """Execute Python code locally, capture charts directly to memory, and upload to Cloudinary."""
+    """Execute Python code locally, capture charts, and upload to temporary image hosting."""
     import matplotlib
     matplotlib.use('Agg')  # Non-interactive backend
     import matplotlib.pyplot as plt
@@ -210,6 +252,16 @@ def execute_and_upload_chart(code: str, ctx: Context = None) -> Tuple[bool, str,
         except ImportError:
             pass
         
+        try:
+            from matplotlib_venn import venn2, venn3, venn2_circles, venn3_circles
+            namespace['venn2'] = venn2
+            namespace['venn3'] = venn3
+            namespace['venn2_circles'] = venn2_circles
+            namespace['venn3_circles'] = venn3_circles
+            namespace['matplotlib_venn'] = __import__('matplotlib_venn')
+        except ImportError:
+            pass
+        
         # Execute the code
         exec(code, namespace)
         
@@ -248,22 +300,18 @@ def execute_and_upload_chart(code: str, ctx: Context = None) -> Tuple[bool, str,
                     img_buffer = io.BytesIO()
                     plt.savefig(img_buffer, format='png', bbox_inches='tight')
                     img_buffer.seek(0)  # Reset buffer position
+                    img_data = img_buffer.read()
                     
-                    # Upload to Cloudinary directly from memory
-                    public_id = f"charts/chart_{int(time.time())}_{i}"
-                    upload_result = cloudinary.uploader.upload(
-                        img_buffer,
-                        public_id=public_id,
-                        resource_type="image",
-                        format="png"
-                    )
-                    
-                    image_url = upload_result.get("secure_url") or upload_result.get("url")
+                    # Upload to temporary image hosting
+                    image_url = upload_to_imgbb(img_data)
                     
                     if image_url:
                         chart_urls.append(image_url)
                         if ctx:
-                            ctx.logger.info(f"Uploaded chart to Cloudinary: {image_url}")
+                            ctx.logger.info(f"Uploaded chart to temporary hosting: {image_url}")
+                    else:
+                        if ctx:
+                            ctx.logger.warning(f"Failed to upload chart {i} to image hosting")
                     
                     # Close the buffer
                     img_buffer.close()
@@ -273,7 +321,6 @@ def execute_and_upload_chart(code: str, ctx: Context = None) -> Tuple[bool, str,
                         ctx.logger.error(f"Error uploading figure {fig_num}: {str(upload_error)}")
         
         # If no figures found, check if code saved files directly (we'll read and delete them)
-        # This handles cases where code used plt.savefig() despite instructions
         if not fig_nums:
             import glob
             saved_files = glob.glob('chart_*.png') + [f for f in glob.glob('*.png') if f.endswith('.png')]
@@ -292,21 +339,13 @@ def execute_and_upload_chart(code: str, ctx: Context = None) -> Tuple[bool, str,
                     with open(saved_file, 'rb') as f:
                         img_data = f.read()
                     
-                    # Upload to Cloudinary directly from memory
-                    public_id = f"charts/chart_{int(time.time())}_{len(chart_urls)}"
-                    upload_result = cloudinary.uploader.upload(
-                        io.BytesIO(img_data),
-                        public_id=public_id,
-                        resource_type="image",
-                        format="png"
-                    )
-                    
-                    image_url = upload_result.get("secure_url") or upload_result.get("url")
+                    # Upload to temporary image hosting
+                    image_url = upload_to_imgbb(img_data)
                     
                     if image_url:
                         chart_urls.append(image_url)
                         if ctx:
-                            ctx.logger.info(f"Uploaded chart to Cloudinary: {image_url}")
+                            ctx.logger.info(f"Uploaded chart to temporary hosting: {image_url}")
                     
                     # Delete the file immediately after upload
                     try:
@@ -332,13 +371,33 @@ def execute_and_upload_chart(code: str, ctx: Context = None) -> Tuple[bool, str,
         else:
             return True, "Code executed successfully but no charts were generated. Make sure to use plt.show() or plt.savefig() to create charts.", []
             
+    except AttributeError as attr_err:
+        # Clean up on error - close any open figures
+        plt.close('all')
+        
+        error_msg = f"Attribute error in code: {str(attr_err)}\n\n"
+        error_msg += "This usually means the code is trying to access an attribute that doesn't exist.\n"
+        error_msg += "Common causes:\n"
+        error_msg += "- Incorrect API usage (e.g., accessing .texts on a list instead of a Sankey object)\n"
+        error_msg += "- Wrong variable type or missing initialization\n"
+        
+        if ctx:
+            ctx.logger.error(f"AttributeError: {str(attr_err)}")
+        return False, error_msg, []
+            
     except Exception as e:
         # Clean up on error - close any open figures
         plt.close('all')
         
-        error_msg = f"Error executing code: {str(e)}"
+        error_msg = f"Error executing code: {str(e)}\n\n"
+        error_msg += "Common issues:\n"
+        error_msg += "- Check if all required libraries are imported\n"
+        error_msg += "- Verify variable names and data types\n"
+        error_msg += "- Ensure matplotlib figures are created before saving\n"
+        error_msg += "- For Sankey diagrams, use matplotlib.sankey.Sankey correctly\n"
+        
         if ctx:
-            ctx.logger.error(error_msg)
+            ctx.logger.error(f"Execution error: {str(e)}")
         return False, error_msg, []
 
 
@@ -346,7 +405,7 @@ def execute_and_upload_chart(code: str, ctx: Context = None) -> Tuple[bool, str,
 def create_text_chat(text: str, end_session: bool = False) -> ChatMessage:
     content = [TextContent(type="text", text=text)]
     return ChatMessage(
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(timezone.utc),
         msg_id=uuid4(),
         content=content,
     )
@@ -359,7 +418,7 @@ async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
 
     # Always send back an acknowledgement when a message is received
     await ctx.send(sender, ChatAcknowledgement(
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(timezone.utc),
         acknowledged_msg_id=msg.msg_id
     ))
 
@@ -368,6 +427,16 @@ async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
         # Marks the start of a chat session
         if isinstance(item, StartSessionContent):
             ctx.logger.info(f"Session started with {sender}")
+            welcome_msg = create_text_chat(
+                "👋 Hello! I'm your Chart Generator Agent powered by ASI 1.\n"
+                "Send me a description of the chart you want, and I'll create it for you!\n\n"
+                "Examples:\n"
+                "- 'Create a bar chart showing sales by month'\n"
+                "- 'Make a line chart of temperature over time'\n"
+                "- 'Generate a pie chart of market share'"
+            )
+            await ctx.send(sender, welcome_msg)
+
         # Handles plain text messages (from another agent or ASI:One)
         elif isinstance(item, TextContent):
             user_prompt = item.text.strip()
@@ -411,7 +480,7 @@ async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
                     await ctx.send(sender, error_msg)
                     continue
 
-                # Execute code and upload to Cloudinary
+                # Execute code and upload to temporary hosting
                 success, result_msg, chart_urls = execute_and_upload_chart(code, ctx)
 
                 # Send result message with markdown image links
