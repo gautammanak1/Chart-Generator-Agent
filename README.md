@@ -1,54 +1,101 @@
-![uagents](https://img.shields.io/badge/uagents-4A90E2)  ![innovationlab](https://img.shields.io/badge/innovationlab-3D8BD3) ![chatprotocol](https://img.shields.io/badge/chatprotocol-1D3BD4) [![X](https://img.shields.io/badge/X-black.svg?logo=X&logoColor=white)](https://x.com/gautammanak02) ![tag:spotlight](https://img.shields.io/badge/spotlight-0EA5E9)
+# Chart Generator Agent
 
----
+[![Fetch.ai](https://img.shields.io/badge/Fetch.ai-uAgents-purple)](https://fetch.ai)
+[![ASI:One](https://img.shields.io/badge/ASI:One-LLM-blue)](https://asi1.ai)
+[![Cloudinary](https://img.shields.io/badge/Cloudinary-Storage-3448C5)](https://cloudinary.com)
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://python.org)
+![innovationlab](https://img.shields.io/badge/innovationlab-3D8BD3)
+![tag:uagents](https://img.shields.io/badge/tag-uagents-blue)
+![spotlight](https://img.shields.io/badge/spotlight-0EA5E9)
 
+An AI-powered chart generation agent that transforms natural language descriptions into beautiful data visualizations. Uses ASI:One LLM to generate Python matplotlib code, executes it securely, and shares the charts via Cloudinary URLs — all through the uAgents chat protocol.
 
-## 📊 Chart Generator Agent
+## Features
 
+- **AI-Powered Code Generation** — Uses ASI:One LLM to generate optimized matplotlib code from natural language
+- **Multiple Chart Types** — Line charts, bar charts, pie charts, scatter plots, box plots, heatmaps, word clouds, and more
+- **Secure Execution** — Charts rendered locally using matplotlib's Agg backend (non-interactive)
+- **Cloud Storage** — Automatic upload to Cloudinary for permanent, shareable URLs
+- **Chat Integration** — Built on uAgents chat protocol for seamless agent-to-agent communication
+- **Zero Local Storage** — Charts captured to memory and uploaded directly — no temp files
+- **Smart Code Extraction** — Handles various code block formats from LLM responses
 
-Transform your data visualization needs into beautiful charts with just a simple chat message. The Chart Generator Agent leverages ASI 1 LLM to generate Python code and creates stunning visualizations using matplotlib, all executed securely and displayed directly in your chat interface.
+## Example
 
-### What it Does
-
-The Chart Generator Agent acts as your personal chart creation assistant, using advanced AI to understand your visualization requirements and generate custom Python code. It executes the code locally, captures the charts, uploads them to Cloudinary, and displays them directly in chat messages using markdown formatting.
-
-## ✨ Key Features
-
-*   **AI-Powered Code Generation**: Uses ASI 1 LLM to generate optimized Python matplotlib code based on natural language descriptions.
-*   **Multiple Chart Types**: Supports line charts, bar charts, pie charts, scatter plots, box plots, and any custom matplotlib visualization.
-*   **Secure Local Execution**: Charts are generated locally using matplotlib with Agg backend for safe, non-interactive execution.
-*   **Cloud Storage**: Automatic upload to Cloudinary ensures your charts are accessible via permanent URLs.
-*   **Chat Integration**: Built on uAgents chat protocol for seamless integration with agent-to-agent communication.
-*   **Zero Local Storage**: Charts are captured directly to memory and uploaded to Cloudinary - no local files are saved.
-*   **Smart Code Extraction**: Automatically extracts Python code from LLM responses, handling various code block formats.
-*   **Error Handling**: Comprehensive error handling with informative messages for debugging.
-
-## 🚀 Example Usage
-
-Once deployed, you can interact with the Chart Generator Agent by sending chart requests via uAgent chat protocol.
-
-### Example Query
-
+**Query:**
 ```
-"Create an interactive dashboard layout with three linked charts: a pie chart of product categories, a bar chart of revenue by region, and a line chart of monthly profit. Selecting a region in the bar chart should filter the other two charts automatically."
+Create a pie chart of product categories with Electronics 35%, Clothing 25%, Food 20%, Books 15%, Other 5%
 ```
 
-### Expected Output
+**Output:**
 
-The agent will respond with:
+![Chart Example](https://res.cloudinary.com/doesqlfyi/image/upload/v1762378904/charts/chart_1762378903_1.png)
 
-![image](https://res.cloudinary.com/doesqlfyi/image/upload/v1762378904/charts/chart_1762378903_1.png)
+## Tech Stack
 
+| Component | Technology |
+|-----------|-----------|
+| Agent Framework | Fetch.ai uAgents + Chat Protocol |
+| AI Model | ASI:One (asi1-mini) |
+| Visualization | matplotlib, numpy, pandas, seaborn |
+| Cloud Storage | Cloudinary |
+| Extended Charts | wordcloud, networkx, squarify, matplotlib-venn |
 
+## Getting Started
 
-The agent will start and publish its manifest to Agentverse. You'll see the agent's address printed in the console.
+### Prerequisites
 
+- Python 3.10+
+- ASI:One API key ([get one here](https://asi1.ai))
+- Cloudinary account (free tier works)
 
-## 🏗️ Architecture
+### Installation
 
----
+```bash
+git clone https://github.com/gautammanak1/Chart-Generator-Agent.git
+cd Chart-Generator-Agent
+pip install -r requirements.txt
+```
 
-## 🧠 Inspired by
+### Configuration
 
-*   [Fetch.ai uAgents](https://github.com/fetchai/uAgents)
-*   [ASI:One](https://asi1.ai/chat)
+Create a `.env` file:
+
+```env
+ASI_ONE_API_KEY=your_asi1_api_key
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_cloudinary_key
+CLOUDINARY_API_SECRET=your_cloudinary_secret
+```
+
+### Run
+
+```bash
+python agent.py
+```
+
+The agent starts and publishes its manifest to Agentverse. Interact with it via the uAgents chat protocol.
+
+## Project Structure
+
+```
+├── agent.py           # Agent setup, LLM integration, chart execution, Cloudinary upload
+├── requirements.txt   # Python dependencies
+├── .env.example       # Environment variable template
+└── README.md
+```
+
+## Supported Visualizations
+
+| Type | Library |
+|------|---------|
+| Line / Bar / Pie / Scatter / Box | matplotlib |
+| Heatmaps / Correlation | seaborn |
+| Word Clouds | wordcloud |
+| Network Graphs | networkx |
+| Treemaps | squarify |
+| Venn Diagrams | matplotlib-venn |
+
+## License
+
+MIT
